@@ -1,6 +1,7 @@
 import type { NextPage } from 'next';
 import React from 'react';
 import { Recipe, recipes } from './data/recipe';
+import { PiMoney, PiTrolleyFill } from 'react-icons/pi';
 
 interface CombinedRecipe {
     name: string;
@@ -96,46 +97,51 @@ const Home: NextPage = () => {
     );
 
     const RecipeItem: React.FC<{ recipe: CombinedRecipe; level: number }> = ({ recipe, level }) => {
+        const isParent: boolean = level === 0;
         const [isExpanded, setIsExpanded] = React.useState(false);
 
         React.useEffect(() => {
             setIsExpanded(allExpanded);
         }, [allExpanded]);
 
+        React.useEffect(() => {
+            setIsExpanded(!isParent);
+        }, []);
+
         return (
-            <div>
+            <div className={`pt-1 pl-2 ml-${level * 2} ${isParent && 'pb-2 border-b-2 border-[#cdad72]'}`}>
                 <div>
-                    <div>
-                        {recipe.subRecipes && recipe.subRecipes.length > 0 && (
-                            <button onClick={() => setIsExpanded(!isExpanded)}>
-                                {isExpanded ? '▼' : '▶'}
-                            </button>
+                    <div className="flex justify-start">
+                        <h3 className="grow">
+                            {isParent && recipe.subRecipes && recipe.subRecipes.length > 0 ? (
+                                <button onClick={() => setIsExpanded(!isExpanded)}>
+                                    {isExpanded ? '-' : '+'} {recipe.name}
+                                </button>
+                            ) : (
+                                recipe.name
+                            )}
+                        </h3>
+                        {isParent && (
+                            <>
+                                <p className="w-20 text-sm">
+                                    <PiMoney className="inline" />
+                                    &nbsp;{recipe.price}
+                                </p>
+                                <p className="w-12 text-sm">
+                                    <PiTrolleyFill className="inline" />
+                                    &nbsp;{recipe.cost}
+                                </p>
+                            </>
                         )}
-                        <h3>{recipe.name}</h3>
-                        <span>
-                            価格: {recipe.price} / コスト: {recipe.cost}
-                        </span>
                     </div>
-                    <div>
-                        直接材料:{' '}
+                    <div className="ml-2">
                         {recipe.materials.map((material, i) => (
-                            <span key={i}>
-                                {material.name} ×{material.quantity}
-                                {i < recipe.materials.length - 1 ? '、' : ''}
-                            </span>
+                            <div key={i} className="flex justify-between text-sm">
+                                <p>{material.name}</p>
+                                <p>{material.quantity}</p>
+                            </div>
                         ))}
                     </div>
-                    {level === 0 && recipe.totalMaterials && (
-                        <div>
-                            必要な全材料:{' '}
-                            {recipe.totalMaterials.map((material, i) => (
-                                <span key={i}>
-                                    {material.name} ×{material.quantity}
-                                    {i < recipe.totalMaterials.length - 1 ? '、' : ''}
-                                </span>
-                            ))}
-                        </div>
-                    )}
                 </div>
                 {recipe.subRecipes && recipe.subRecipes.length > 0 && isExpanded && (
                     <div>
@@ -150,23 +156,26 @@ const Home: NextPage = () => {
 
     return (
         <div>
-            <h1>ネルケのアトリエ レシピデータ</h1>
-            <div>
-                <div>
+            <nav className="container fixed top-0 left-0 right-0 bg-[#5a3c18] px-2 py-2 drop-shadow">
+                <div className="flex">
                     <input
                         type="text"
                         value={filterText}
                         onChange={(e) => setFilterText(e.target.value)}
+                        className="rounded p-1 flex-auto"
                     />
-                    <button onClick={() => setAllExpanded(!allExpanded)}>
-                        {allExpanded ? '全て閉じる' : '全て開く'}
+                    <button
+                        onClick={() => setAllExpanded(!allExpanded)}
+                        className="rounded p-1 ml-2 w-64 text-white"
+                    >
+                        {allExpanded ? '-' : '+'}
                     </button>
                 </div>
-                <div>
-                    {filteredRecipes.map((recipe, index) => (
-                        <RecipeItem key={index} recipe={recipe} level={0} />
-                    ))}
-                </div>
+            </nav>
+            <div className="container max-w-screen-sm mt-10">
+                {filteredRecipes.map((recipe, index) => (
+                    <RecipeItem key={index} recipe={recipe} level={0} />
+                ))}
             </div>
         </div>
     );

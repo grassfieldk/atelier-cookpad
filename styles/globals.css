@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@import url('https://fonts.googleapis.com/css2?family=RocknRoll+One&display=swap');
+
+:root {
+  background-color: #fdf1d3;
+  font-family: "RocknRoll One", sans-serif;
+  color: #2f1717;
+}
