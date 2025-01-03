@@ -1,9 +1,11 @@
 import type { NextPage } from 'next';
 import React from 'react';
+import { BiCollapseVertical, BiExpandVertical } from 'react-icons/bi';
+import { PiMoney, PiStarDuotone, PiStarFill, PiTrolleyFill } from 'react-icons/pi';
 import { Recipe, recipes } from './data/recipe';
-import { PiMoney, PiTrolleyFill } from 'react-icons/pi';
 
 interface CombinedRecipe {
+    category: string;
     name: string;
     price: string;
     cost: number;
@@ -19,6 +21,15 @@ interface Material {
 const Home: NextPage = () => {
     const [filterText, setFilterText] = React.useState('');
     const [allExpanded, setAllExpanded] = React.useState(false);
+    const [selectedCategory, setSelectedCategory] = React.useState<string>('all');
+    const [favorites, setFavorites] = React.useState<Set<string>>(new Set());
+
+    React.useEffect(() => {
+        const saved = localStorage.getItem('favorites');
+        if (saved) {
+            setFavorites(new Set(JSON.parse(saved)));
+        }
+    }, []);
 
     // かな/カナの正規化
     const normalizeKana = (text: string): string => {
@@ -69,6 +80,7 @@ const Home: NextPage = () => {
         });
 
         const recipe: CombinedRecipe = {
+            category: filteredRecipes[0].category || 'default',
             name: filteredRecipes[0].name,
             price: filteredRecipes[0].price,
             cost: filteredRecipes[0].cost,
@@ -88,13 +100,42 @@ const Home: NextPage = () => {
         return recipe;
     };
 
-    const allRecipes = Array.from(new Set(recipes.map((r) => r.name)))
-        .map((name) => findRecipeByName(name, recipes, new Set()))
-        .filter((r): r is CombinedRecipe => r !== null);
+    // お気に入りの保存
+    const toggleFavorite = (recipeName: string) => {
+        setFavorites((prev) => {
+            const next = new Set(prev);
+            if (next.has(recipeName)) {
+                next.delete(recipeName);
+            } else {
+                next.add(recipeName);
+            }
+            localStorage.setItem('favorites', JSON.stringify(Array.from(next)));
+            return next;
+        });
+    };
 
-    const filteredRecipes = allRecipes.filter((recipe) =>
-        normalizeKana(recipe.name).includes(normalizeKana(filterText))
-    );
+    const categories = React.useMemo(() => {
+        const uniqueCategories = new Set(recipes.map((recipe) => recipe.category));
+        return ['all', 'favorites', ...Array.from(uniqueCategories)];
+    }, []);
+
+    const filteredRecipes = React.useMemo(() => {
+        return recipes
+            .filter((recipe) => {
+                const nameMatch = normalizeKana(recipe.name).includes(normalizeKana(filterText));
+                const categoryMatch =
+                    selectedCategory === 'all'
+                        ? true
+                        : selectedCategory === 'favorites'
+                          ? favorites.has(recipe.name)
+                          : recipe.category === selectedCategory;
+                return nameMatch && categoryMatch;
+            })
+            .map((recipe) => recipe.name)
+            .filter((value, index, self) => self.indexOf(value) === index)
+            .map((recipeName) => findRecipeByName(recipeName, recipes))
+            .filter((r): r is CombinedRecipe => r !== null);
+    }, [filterText, selectedCategory]);
 
     const RecipeItem: React.FC<{ recipe: CombinedRecipe; level: number }> = ({ recipe, level }) => {
         const isParent: boolean = level === 0;
@@ -109,13 +150,27 @@ const Home: NextPage = () => {
         }, []);
 
         return (
-            <div className={`pt-1 pl-2 ml-${level * 2} ${isParent && 'pb-2 border-b-2 border-[#cdad72]'}`}>
+            <div
+                className={`pt-1 px-2 ml-${level * 2} ${isParent && 'pb-2 border-b-2 border-[#cdad72]'}`}
+            >
                 <div>
                     <div className="flex justify-start">
-                        <h3 className="grow">
+                        <h3 className="grow flex items-center gap-2">
+                            <button onClick={() => toggleFavorite(recipe.name)} className="text-xl">
+                                {favorites.has(recipe.name) ? (
+                                    <PiStarFill className="inline" />
+                                ) : (
+                                    <PiStarDuotone className="inline" />
+                                )}
+                            </button>
                             {isParent && recipe.subRecipes && recipe.subRecipes.length > 0 ? (
                                 <button onClick={() => setIsExpanded(!isExpanded)}>
-                                    {isExpanded ? '-' : '+'} {recipe.name}
+                                    {isExpanded ? (
+                                        <BiCollapseVertical className="inline" />
+                                    ) : (
+                                        <BiExpandVertical className="inline" />
+                                    )}{' '}
+                                    {recipe.name}
                                 </button>
                             ) : (
                                 recipe.name
@@ -137,7 +192,7 @@ const Home: NextPage = () => {
                     <div className="ml-2">
                         {recipe.materials.map((material, i) => (
                             <div key={i} className="flex justify-between text-sm">
-                                <p>{material.name}</p>
+                                <p className="text-[#2f1717c0]">{material.name}</p>
                                 <p>{material.quantity}</p>
                             </div>
                         ))}
@@ -157,22 +212,50 @@ const Home: NextPage = () => {
     return (
         <div>
             <nav className="container fixed top-0 left-0 right-0 bg-[#5a3c18] px-2 py-2 drop-shadow">
-                <div className="flex">
-                    <input
-                        type="text"
-                        value={filterText}
-                        onChange={(e) => setFilterText(e.target.value)}
-                        className="rounded p-1 flex-auto"
-                    />
-                    <button
-                        onClick={() => setAllExpanded(!allExpanded)}
-                        className="rounded p-1 ml-2 w-64 text-white"
-                    >
-                        {allExpanded ? '-' : '+'}
-                    </button>
+                <div className="flex flex-col gap-2">
+                    <div className="flex gap-2">
+                        <input
+                            type="text"
+                            value={filterText}
+                            onChange={(e) => setFilterText(e.target.value)}
+                            className="rounded p-1 flex-auto"
+                            placeholder="レシピ名を入力"
+                        />
+                        {/* <button
+                            onClick={() => setAllExpanded(!allExpanded)}
+                            className="rounded p-1 ml-2 w-24 text-white hover:bg-[#6a4c28]"
+                        >
+                            {allExpanded ? '全て閉じる' : '全て開く'}
+                        </button> */}
+                    </div>
+                    <div className="flex justify-stretch">
+                        {categories.map((category) => (
+                            <button
+                                key={category}
+                                onClick={() => setSelectedCategory(category)}
+                                className={`w-full py-1 text-sm ring-1 ring-[#ffffff60]
+                                    ${
+                                        selectedCategory === category
+                                            ? 'bg-[#8a6c48] text-white'
+                                            : 'bg-[#ffffff40] text-white hover:bg-[#ffffff60]'
+                                    }
+                                    ${category === 'all' && 'rounded-l'}
+                                    ${category === '薬' && 'rounded-r'}
+                                `}
+                            >
+                                {category === 'all' ? (
+                                    'ALL'
+                                ) : category === 'favorites' ? (
+                                    <PiStarFill className="inline" />
+                                ) : (
+                                    category
+                                )}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </nav>
-            <div className="container max-w-screen-sm mt-10">
+            <div className="container max-w-screen-sm mt-[84px]">
                 {filteredRecipes.map((recipe, index) => (
                     <RecipeItem key={index} recipe={recipe} level={0} />
                 ))}

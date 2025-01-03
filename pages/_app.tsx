@@ -11,7 +11,7 @@ function MyApp({ Component, pageProps }: AppProps) {
                 rel="stylesheet"
             />
 
-            <div className="conatiner mx-auto p-4">
+            <div className="conatiner mx-auto px-4">
                 <Component {...pageProps} />
             </div>
         </>
