@@ -2,7 +2,7 @@ import type { NextPage } from 'next';
 import React from 'react';
 import { BiCollapseVertical, BiExpandVertical } from 'react-icons/bi';
 import { PiMoney, PiStarDuotone, PiStarFill, PiTrolleyFill } from 'react-icons/pi';
-import { Recipe, recipes } from './data/recipe';
+import { Recipe, recipes } from '../data/recipe';
 
 interface CombinedRecipe {
     category: string;
@@ -20,7 +20,7 @@ interface Material {
 
 const Home: NextPage = () => {
     const [filterText, setFilterText] = React.useState('');
-    const [allExpanded, setAllExpanded] = React.useState(false);
+    const [allExpanded] = React.useState(false);
     const [selectedCategory, setSelectedCategory] = React.useState<string>('all');
     const [favorites, setFavorites] = React.useState<Set<string>>(new Set());
 
@@ -40,7 +40,7 @@ const Home: NextPage = () => {
     };
 
     // レシピに含まれる全材料の計算
-    const calculateTotalMaterials = (recipe: CombinedRecipe): Material[] => {
+    const calculateTotalMaterials = React.useCallback((recipe: CombinedRecipe): Material[] => {
         const totalMap = new Map<string, number>();
 
         recipe.materials.forEach((material) => {
@@ -58,47 +58,50 @@ const Home: NextPage = () => {
             name,
             quantity,
         }));
-    };
+    }, []);
 
     // レシピ名からレシピを再帰的に検索
-    const findRecipeByName = (
-        name: string,
-        recipeList: Recipe[],
-        usedRecipes: Set<string> = new Set()
-    ): CombinedRecipe | null => {
-        if (usedRecipes.has(name)) return null;
+    const findRecipeByName = React.useCallback(
+        (
+            name: string,
+            recipeList: Recipe[],
+            usedRecipes: Set<string> = new Set()
+        ): CombinedRecipe | null => {
+            if (usedRecipes.has(name)) return null;
 
-        const filteredRecipes = recipeList.filter((recipe) => recipe.name === name);
-        if (filteredRecipes.length === 0) return null;
+            const filteredRecipes = recipeList.filter((recipe) => recipe.name === name);
+            if (filteredRecipes.length === 0) return null;
 
-        usedRecipes.add(name);
+            usedRecipes.add(name);
 
-        const materialMap = new Map<string, number>();
-        filteredRecipes.forEach((r) => {
-            const currentQuantity = materialMap.get(r.material) || 0;
-            materialMap.set(r.material, currentQuantity + r.quantity);
-        });
+            const materialMap = new Map<string, number>();
+            filteredRecipes.forEach((r) => {
+                const currentQuantity = materialMap.get(r.material) || 0;
+                materialMap.set(r.material, currentQuantity + r.quantity);
+            });
 
-        const recipe: CombinedRecipe = {
-            category: filteredRecipes[0].category || 'default',
-            name: filteredRecipes[0].name,
-            price: filteredRecipes[0].price,
-            cost: filteredRecipes[0].cost,
-            materials: Array.from(materialMap.entries()).map(([name, quantity]) => ({
-                name,
-                quantity,
-            })),
-            totalMaterials: [],
-        };
+            const recipe: CombinedRecipe = {
+                category: filteredRecipes[0].category || 'default',
+                name: filteredRecipes[0].name,
+                price: filteredRecipes[0].price,
+                cost: filteredRecipes[0].cost,
+                materials: Array.from(materialMap.entries()).map(([name, quantity]) => ({
+                    name,
+                    quantity,
+                })),
+                totalMaterials: [],
+            };
 
-        recipe.subRecipes = recipe.materials
-            .map((material) => findRecipeByName(material.name, recipeList, usedRecipes))
-            .filter((r): r is CombinedRecipe => r !== null);
+            recipe.subRecipes = recipe.materials
+                .map((material) => findRecipeByName(material.name, recipeList, usedRecipes))
+                .filter((r): r is CombinedRecipe => r !== null);
 
-        recipe.totalMaterials = calculateTotalMaterials(recipe);
+            recipe.totalMaterials = calculateTotalMaterials(recipe);
 
-        return recipe;
-    };
+            return recipe;
+        },
+        [calculateTotalMaterials]
+    );
 
     // お気に入りの保存
     const toggleFavorite = (recipeName: string) => {
@@ -135,19 +138,23 @@ const Home: NextPage = () => {
             .filter((value, index, self) => self.indexOf(value) === index)
             .map((recipeName) => findRecipeByName(recipeName, recipes))
             .filter((r): r is CombinedRecipe => r !== null);
-    }, [filterText, selectedCategory]);
+    }, [filterText, selectedCategory, favorites, findRecipeByName]);
 
     const RecipeItem: React.FC<{ recipe: CombinedRecipe; level: number }> = ({ recipe, level }) => {
         const isParent: boolean = level === 0;
         const [isExpanded, setIsExpanded] = React.useState(false);
 
         React.useEffect(() => {
-            setIsExpanded(allExpanded);
-        }, [allExpanded]);
+            if (allExpanded) {
+                setIsExpanded(true);
+            } else {
+                setIsExpanded(!isParent);
+            }
+        }, [isParent]);
 
         React.useEffect(() => {
             setIsExpanded(!isParent);
-        }, []);
+        }, [isParent, setIsExpanded]);
 
         return (
             <div
